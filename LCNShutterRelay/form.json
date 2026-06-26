@@ -1,0 +1,173 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "bold": true,
+            "caption": "LCN Relais-Konfiguration"
+        },
+        {
+            "type": "Label",
+            "caption": "Waehle fuer AUF und AB je die boolesche Variable des LCN-Relaisausgangs aus dem Objektbaum."
+        },
+        {
+            "type": "SelectVariable",
+            "name": "RelayUpID",
+            "caption": "Relais AUF (Boolean-Variable)",
+            "width": "400px"
+        },
+        {
+            "type": "SelectVariable",
+            "name": "RelayDownID",
+            "caption": "Relais AB  (Boolean-Variable)",
+            "width": "400px"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "Label",
+            "bold": true,
+            "caption": "Fahrzeiten (Einmessung)"
+        },
+        {
+            "type": "Label",
+            "caption": "Messe die Zeit, die der Motor fuer die komplette Strecke benoetigt, und trage sie hier ein."
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "TravelTimeUp",
+            "caption": "Fahrtzeit AUF (Sekunden)",
+            "digits": 1,
+            "minimum": 1,
+            "maximum": 300,
+            "suffix": " s"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "TravelTimeDown",
+            "caption": "Fahrtzeit AB  (Sekunden)",
+            "digits": 1,
+            "minimum": 1,
+            "maximum": 300,
+            "suffix": " s"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "Label",
+            "bold": true,
+            "caption": "Erweiterte Einstellungen"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "SafetyDelayMS",
+            "caption": "Sicherheitspause bei Richtungswechsel",
+            "minimum": 50,
+            "maximum": 1000,
+            "suffix": " ms"
+        },
+        {
+            "type": "CheckBox",
+            "name": "InvertDirection",
+            "caption": "Fahrtrichtung umkehren (Verdrahtung vertauscht)"
+        }
+    ],
+
+    "actions": [
+        {
+            "type": "Label",
+            "bold": true,
+            "caption": "Testfunktionen"
+        },
+        {
+            "type": "Label",
+            "caption": "ACHTUNG: Die folgenden Aktionen steuern den Motor sofort an. Bitte sicherstellen, dass keine Personen oder Gegenstaende im Bereich des Rollladens sind."
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "Button",
+                    "caption": "▲  AUF fahren",
+                    "onClick": "LRS_MoveUp($id);"
+                },
+                {
+                    "type": "Button",
+                    "caption": "■  STOPP",
+                    "onClick": "LRS_Stop($id);"
+                },
+                {
+                    "type": "Button",
+                    "caption": "▼  AB fahren",
+                    "onClick": "LRS_MoveDown($id);"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "TestPosition",
+                    "caption": "Zielposition",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "suffix": " %"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Anfahren",
+                    "onClick": "LRS_MoveTo($id, $TestPosition);"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "Label",
+            "bold": true,
+            "caption": "Kalibrierung"
+        },
+        {
+            "type": "Label",
+            "caption": "Faehrt den Rollladen auf die untere Endlage und setzt die Position auf 100 %. Einmalig nach Erstinstallation empfohlen."
+        },
+        {
+            "type": "Button",
+            "caption": "Kalibrierung starten (faehrt auf untere Endlage)",
+            "onClick": "LRS_Calibrate($id);"
+        }
+    ],
+
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Aktiv"
+        },
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Konfiguration unvollstaendig – bitte Relais-Variablen auswaehlen"
+        },
+        {
+            "code": 200,
+            "icon": "error",
+            "caption": "Fehler: Relais AUF und AB sind identisch"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Fehler: Mindestens eine Relais-Variable wurde nicht gefunden"
+        }
+    ]
+}

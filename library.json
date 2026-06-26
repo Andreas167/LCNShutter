@@ -1,0 +1,12 @@
+{
+    "id": "{1BB045E0-AB36-4EC6-A835-7D5A7D338540}",
+    "author": "Community",
+    "name": "LCN Shutter Relay",
+    "url": "https://github.com/community/LCNShutterRelay",
+    "version": "1.0",
+    "build": 1,
+    "date": 0,
+    "compatibility": {
+        "version": "8.1"
+    }
+}

@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * LCNShutterRelay – IP-Symcon Modul  v1.2
  *
@@ -297,7 +295,7 @@ class LCNShutterRelay extends IPSModule
     //  ACTION HANDLER
     // ==========================================================================
 
-    public function RequestAction(string $ident, mixed $value): void
+    public function RequestAction(string $ident, $value): void
     {
         match ($ident) {
             'Position' => $this->MoveTo((int) $value),

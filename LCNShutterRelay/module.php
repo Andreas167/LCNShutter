@@ -21,9 +21,9 @@ declare(strict_types=1);
  *   LRS_MoveUp($id), LRS_MoveDown($id), LRS_Stop($id)
  *   LRS_MoveTo($id, $pos), LRS_Calibrate($id), LRS_GetPosition($id)
  *
- * Prefix: LRS  |  Symcon >= 7.x  |  IPSModuleStrict  |  PHP 8.x
+ * Prefix: LRS  |  Symcon >= 7.1  |  IPSModule  |  PHP 8.2
  */
-class LCNShutterRelay extends IPSModuleStrict
+class LCNShutterRelay extends IPSModule
 {
     private const DIRECTION_STOP = 0;
     private const DIRECTION_UP   = 1;

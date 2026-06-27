@@ -4,7 +4,7 @@
     "name": "LCN Shutter Relay",
     "url": "https://github.com/Andreas167/LCNShutter",
     "version": "2.1",
-    "build": 3,
+    "build": 4,
     "date": 0,
     "compatibility": {
         "version": "7.1"

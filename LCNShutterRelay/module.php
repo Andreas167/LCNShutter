@@ -380,9 +380,9 @@ class LCNShutterRelay extends IPSModule
     /** Motor AUS: setzt FAHREN-Relais auf false. */
     private function StopMotor()
     {
-        $varID = $this->GetRelayVarID('RelayRunInstanceID');
-        if ($varID > 0) {
-            try { IPS_RequestAction($varID, false); }
+        $instID = $this->ReadPropertyInteger('RelayRunInstanceID');
+        if ($instID > 0 && @IPS_ObjectExists($instID)) {
+            try { IPS_RequestAction($instID, 'Status', false); }
             catch (Exception $e) { $this->LogMessage('StopMotor: ' . $e->getMessage(), KL_ERROR); }
         }
     }
@@ -390,9 +390,9 @@ class LCNShutterRelay extends IPSModule
     /** Motor AN: setzt FAHREN-Relais auf true. */
     private function StartMotor()
     {
-        $varID = $this->GetRelayVarID('RelayRunInstanceID');
-        if ($varID > 0) {
-            try { IPS_RequestAction($varID, true); }
+        $instID = $this->ReadPropertyInteger('RelayRunInstanceID');
+        if ($instID > 0 && @IPS_ObjectExists($instID)) {
+            try { IPS_RequestAction($instID, 'Status', true); }
             catch (Exception $e) { $this->LogMessage('StartMotor: ' . $e->getMessage(), KL_ERROR); }
         }
     }
@@ -408,9 +408,9 @@ class LCNShutterRelay extends IPSModule
         $invert   = $this->ReadPropertyBoolean('InvertDirection');
         $dirState = (($logicDir === self::DIRECTION_DOWN) xor $invert);  // Klammern noetig: xor < = Prioritaet!
 
-        $varID = $this->GetRelayVarID('RelayDirectionInstanceID');
-        if ($varID > 0) {
-            try { IPS_RequestAction($varID, $dirState); }
+        $instID = $this->ReadPropertyInteger('RelayDirectionInstanceID');
+        if ($instID > 0 && @IPS_ObjectExists($instID)) {
+            try { IPS_RequestAction($instID, 'Status', $dirState); }
             catch (Exception $e) { $this->LogMessage('SetDirectionRelay: ' . $e->getMessage(), KL_ERROR); }
         }
     }

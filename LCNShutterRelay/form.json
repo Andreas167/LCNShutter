@@ -3,22 +3,22 @@
         {
             "type": "Label",
             "bold": true,
-            "caption": "LCN Relais-Konfiguration"
+            "caption": "LCN Relais-Konfiguration (Fahren + Richtung)"
         },
         {
             "type": "Label",
-            "caption": "Waehle fuer AUF und AB je die boolesche Variable des LCN-Relaisausgangs aus dem Objektbaum."
+            "caption": "Klassische LCN-Schaltung: ein Relais für Motor AN/AUS, ein Relais für Richtung AUF/AB."
         },
         {
             "type": "SelectVariable",
-            "name": "RelayUpID",
-            "caption": "Relais AUF (Boolean-Variable)",
+            "name": "RelayRunID",
+            "caption": "Relais FAHREN  (Boolean-Variable, ON = Motor läuft)",
             "width": "400px"
         },
         {
             "type": "SelectVariable",
-            "name": "RelayDownID",
-            "caption": "Relais AB  (Boolean-Variable)",
+            "name": "RelayDirectionID",
+            "caption": "Relais RICHTUNG (Boolean-Variable, OFF = AUF / ON = AB)",
             "width": "400px"
         },
         {
@@ -31,13 +31,9 @@
             "caption": "Fahrzeiten (Einmessung)"
         },
         {
-            "type": "Label",
-            "caption": "Messe die Zeit, die der Motor fuer die komplette Strecke benoetigt, und trage sie hier ein."
-        },
-        {
             "type": "NumberSpinner",
             "name": "TravelTimeUp",
-            "caption": "Fahrtzeit AUF (Sekunden)",
+            "caption": "Fahrtzeit AUF  (Sekunden)",
             "digits": 1,
             "minimum": 1,
             "maximum": 300,
@@ -46,7 +42,7 @@
         {
             "type": "NumberSpinner",
             "name": "TravelTimeDown",
-            "caption": "Fahrtzeit AB  (Sekunden)",
+            "caption": "Fahrtzeit AB   (Sekunden)",
             "digits": 1,
             "minimum": 1,
             "maximum": 300,
@@ -64,7 +60,7 @@
         {
             "type": "NumberSpinner",
             "name": "SafetyDelayMS",
-            "caption": "Sicherheitspause bei Richtungswechsel",
+            "caption": "Sicherheitspause vor Richtungswechsel",
             "minimum": 50,
             "maximum": 1000,
             "suffix": " ms"
@@ -72,7 +68,7 @@
         {
             "type": "CheckBox",
             "name": "InvertDirection",
-            "caption": "Fahrtrichtung umkehren (Verdrahtung vertauscht)"
+            "caption": "Fahrtrichtung umkehren (Richtungsrelais vertauscht verdrahtet)"
         }
     ],
 
@@ -81,10 +77,6 @@
             "type": "Label",
             "bold": true,
             "caption": "Testfunktionen"
-        },
-        {
-            "type": "Label",
-            "caption": "ACHTUNG: Die folgenden Aktionen steuern den Motor sofort an. Bitte sicherstellen, dass keine Personen oder Gegenstaende im Bereich des Rollladens sind."
         },
         {
             "type": "RowLayout",
@@ -139,35 +131,19 @@
         },
         {
             "type": "Label",
-            "caption": "Faehrt den Rollladen auf die untere Endlage und setzt die Position auf 100 %. Einmalig nach Erstinstallation empfohlen."
+            "caption": "Fährt auf untere Endlage (+ 20 % Puffer) und setzt Position = 100 %."
         },
         {
             "type": "Button",
-            "caption": "Kalibrierung starten (faehrt auf untere Endlage)",
+            "caption": "Kalibrierung starten",
             "onClick": "LRS_Calibrate($id);"
         }
     ],
 
     "status": [
-        {
-            "code": 102,
-            "icon": "active",
-            "caption": "Aktiv"
-        },
-        {
-            "code": 104,
-            "icon": "inactive",
-            "caption": "Konfiguration unvollstaendig – bitte Relais-Variablen auswaehlen"
-        },
-        {
-            "code": 200,
-            "icon": "error",
-            "caption": "Fehler: Relais AUF und AB sind identisch"
-        },
-        {
-            "code": 201,
-            "icon": "error",
-            "caption": "Fehler: Mindestens eine Relais-Variable wurde nicht gefunden"
-        }
+        { "code": 102, "icon": "active",   "caption": "Aktiv" },
+        { "code": 104, "icon": "inactive", "caption": "Konfiguration unvollständig – bitte Relais-Variablen wählen" },
+        { "code": 200, "icon": "error",    "caption": "Fehler: Fahren und Richtung sind identisch" },
+        { "code": 201, "icon": "error",    "caption": "Fehler: Relais-Variable nicht gefunden" }
     ]
 }

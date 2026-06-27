@@ -44,7 +44,7 @@ class LCNShutterRelay extends IPSModule
      * Wird aufgerufen wenn die Instanz geloescht wird.
      * Bereinigt Profile, falls keine weitere LRS-Instanz mehr vorhanden ist.
      */
-    public function Destroy(): void
+    public function Destroy()
     {
         // Profile nur entfernen wenn dies die letzte LRS-Instanz war
         $remaining = array_filter(
@@ -67,7 +67,7 @@ class LCNShutterRelay extends IPSModule
     //  LIFECYCLE
     // ==========================================================================
 
-    public function Create(): void
+    public function Create()
     {
         parent::Create();
 
@@ -103,7 +103,7 @@ class LCNShutterRelay extends IPSModule
         $this->RegisterTimer('CalibrationTimer', 0, "LRS_CalibrationTimer($id);");
     }
 
-    public function ApplyChanges(): void
+    public function ApplyChanges()
     {
         parent::ApplyChanges();
 
@@ -123,7 +123,7 @@ class LCNShutterRelay extends IPSModule
         $this->ValidateConfiguration();
     }
 
-    public function GetConfigurationForm(): string
+    public function GetConfigurationForm()
     {
         return file_get_contents(__DIR__ . '/form.json');
     }
@@ -228,8 +228,11 @@ class LCNShutterRelay extends IPSModule
      *
      * Voraussetzung: LCN-Modul muss Relay-Status zurueckmelden (Standard in IP-Symcon LCN)
      */
-    public function MessageSink(int $timeStamp, int $senderID, int $message, array $data): void
+    public function MessageSink($timeStamp, $senderID, $message, $data)
     {
+        // Niemals diese Zeile loeschen!
+        parent::MessageSink($timeStamp, $senderID, $message, $data);
+
         // Kernelstart: ApplyChanges erneut ausfuehren (jetzt sind alle Instanzen verfuegbar)
         if ($message === IPS_KERNELSTARTED) {
             $this->ApplyChanges();
@@ -295,7 +298,7 @@ class LCNShutterRelay extends IPSModule
     //  ACTION HANDLER
     // ==========================================================================
 
-    public function RequestAction(string $ident, $value): void
+    public function RequestAction($ident, $value)
     {
         match ($ident) {
             'Position' => $this->MoveTo((int) $value),

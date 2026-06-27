@@ -71,6 +71,9 @@ class LCNShutterRelay extends IPSModule
     {
         parent::Create();
 
+        // Profile zuerst anlegen, damit RegisterVariable* sie sofort referenzieren kann
+        $this->EnsureProfiles();
+
         // --- Konfigurationsparameter ---
         $this->RegisterPropertyInteger('RelayUpID',       0);
         $this->RegisterPropertyInteger('RelayDownID',     0);

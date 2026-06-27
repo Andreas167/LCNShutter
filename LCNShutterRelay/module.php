@@ -1,22 +1,18 @@
 <?php
 
 /**
- * LCNShutterRelay – IP-Symcon Modul  v2.0
+ * LCNShutterRelay – IP-Symcon Modul  v2.1
  *
- * Steuert einen Rollladen-Motor ueber zwei LCN-Relaisausgaenge nach dem
- * Fahren+Richtung-Prinzip (klassische LCN-Schaltung):
+ * Steuert einen Rollladen-Motor ueber zwei LCN-Schaltinstanzen nach dem
+ * Fahren+Richtung-Prinzip:
  *
- *   Relais FAHREN   (RelayRunID)       ON  = Motor laeuft  / OFF = Motor gestoppt
- *   Relais RICHTUNG (RelayDirectionID) OFF = Richtung AUF  / ON  = Richtung AB
+ *   Schaltinstanz FAHREN   (RelayRunInstanceID)       Status=ON  = Motor laeuft
+ *                                                      Status=OFF = Motor gestoppt
+ *   Schaltinstanz RICHTUNG (RelayDirectionInstanceID)  Status=OFF = Richtung AUF
+ *                                                      Status=ON  = Richtung AB
  *
- * Schaltsequenz (Motorschutz):
- *   AUF:   Fahren=OFF → Pause → Richtung=OFF → 50ms → Fahren=ON
- *   AB:    Fahren=OFF → Pause → Richtung=ON  → 50ms → Fahren=ON
- *   STOPP: Fahren=OFF  (Richtungsrelais bleibt unveraendert)
- *
- * Externe Betaetigung (LCN-Taster) wird via MessageSink erkannt:
- *   Fahren geht ON  → externe Fahrt gestartet, Richtung wird ausgewertet
- *   Fahren geht OFF → externe Fahrt beendet, Position wird berechnet
+ * Steuerung: IPS_RequestAction() auf die Status-Variable der jeweiligen Instanz.
+ * Ueberwachung: VM_UPDATE auf die Status-Variable der jeweiligen Instanz.
  *
  * Prefix: LRS  |  Symcon >= 7.1  |  IPSModule  |  PHP 8.2
  */
@@ -31,7 +27,7 @@ class LCNShutterRelay extends IPSModule
 
     private const STATUS_ACTIVE            = 102;
     private const STATUS_CONFIG_INCOMPLETE = 104;
-    private const STATUS_SAME_RELAY        = 200;
+    private const STATUS_SAME_INSTANCE     = 200;
     private const STATUS_VAR_NOT_FOUND     = 201;
 
     // ==========================================================================
@@ -62,18 +58,18 @@ class LCNShutterRelay extends IPSModule
         $this->EnsureProfiles();
 
         // --- Konfigurationsparameter ---
-        $this->RegisterPropertyInteger('RelayRunID',       0);    // Relais FAHREN
-        $this->RegisterPropertyInteger('RelayDirectionID', 0);    // Relais RICHTUNG
-        $this->RegisterPropertyFloat('TravelTimeUp',       30.0);
-        $this->RegisterPropertyFloat('TravelTimeDown',     30.0);
-        $this->RegisterPropertyInteger('SafetyDelayMS',    100);
-        $this->RegisterPropertyBoolean('InvertDirection',  false);
+        $this->RegisterPropertyInteger('RelayRunInstanceID',       0);  // Schaltinstanz FAHREN
+        $this->RegisterPropertyInteger('RelayDirectionInstanceID', 0);  // Schaltinstanz RICHTUNG
+        $this->RegisterPropertyFloat('TravelTimeUp',               30.0);
+        $this->RegisterPropertyFloat('TravelTimeDown',             30.0);
+        $this->RegisterPropertyInteger('SafetyDelayMS',            100);
+        $this->RegisterPropertyBoolean('InvertDirection',          false);
 
         // --- Modul-initiierte Fahrt ---
-        $this->RegisterAttributeFloat('StartTime',         0.0);
-        $this->RegisterAttributeInteger('StartPosition',   50);
-        $this->RegisterAttributeInteger('LogicalDir',      self::DIRECTION_STOP);
-        $this->RegisterAttributeInteger('TargetPosition',  50);
+        $this->RegisterAttributeFloat('StartTime',       0.0);
+        $this->RegisterAttributeInteger('StartPosition', 50);
+        $this->RegisterAttributeInteger('LogicalDir',    self::DIRECTION_STOP);
+        $this->RegisterAttributeInteger('TargetPosition',50);
 
         // --- Extern (LCN-Taster) initiierte Fahrt ---
         $this->RegisterAttributeInteger('ExternalDir',   self::DIRECTION_STOP);
@@ -119,9 +115,9 @@ class LCNShutterRelay extends IPSModule
     //  PUBLIC API
     // ==========================================================================
 
-    public function MoveUp()    { $this->StartFullTravel(self::DIRECTION_UP); }
-    public function MoveDown()  { $this->StartFullTravel(self::DIRECTION_DOWN); }
-    public function Stop()      { $this->StopAndRecalcPosition(); }
+    public function MoveUp()   { $this->StartFullTravel(self::DIRECTION_UP); }
+    public function MoveDown() { $this->StartFullTravel(self::DIRECTION_DOWN); }
+    public function Stop()     { $this->StopAndRecalcPosition(); }
 
     public function MoveTo($position)
     {
@@ -131,10 +127,10 @@ class LCNShutterRelay extends IPSModule
 
         if ($position < $current) {
             $logicDir = self::DIRECTION_UP;
-            $ms = (int) round($this->ReadPropertyFloat('TravelTimeUp')   * ($current - $position) / 100.0 * 1000);
+            $ms = (int)round($this->ReadPropertyFloat('TravelTimeUp')   * ($current - $position) / 100.0 * 1000);
         } else {
             $logicDir = self::DIRECTION_DOWN;
-            $ms = (int) round($this->ReadPropertyFloat('TravelTimeDown') * ($position - $current) / 100.0 * 1000);
+            $ms = (int)round($this->ReadPropertyFloat('TravelTimeDown') * ($position - $current) / 100.0 * 1000);
         }
         $this->BeginMovement($logicDir, $position, $ms);
     }
@@ -142,7 +138,7 @@ class LCNShutterRelay extends IPSModule
     public function Calibrate()
     {
         $this->LogMessage('LCNShutterRelay: Kalibrierung gestartet – fahre auf untere Endlage', KL_MESSAGE);
-        $calibMs = (int) round($this->ReadPropertyFloat('TravelTimeDown') * 1.2 * 1000);
+        $calibMs = (int)round($this->ReadPropertyFloat('TravelTimeDown') * 1.2 * 1000);
 
         $this->WriteAttributeInteger('LogicalDir',     self::DIRECTION_DOWN);
         $this->WriteAttributeInteger('ExternalDir',    self::DIRECTION_STOP);
@@ -217,38 +213,37 @@ class LCNShutterRelay extends IPSModule
 
         if ($message !== VM_UPDATE) return;
 
-        $runID = $this->ReadPropertyInteger('RelayRunID');
-        $dirID = $this->ReadPropertyInteger('RelayDirectionID');
+        $runVarID = $this->GetRelayVarID('RelayRunInstanceID');
+        $dirVarID = $this->GetRelayVarID('RelayDirectionInstanceID');
 
-        if ($senderID !== $runID && $senderID !== $dirID) return;
+        if ($senderID !== $runVarID && $senderID !== $dirVarID) return;
 
         // Modul steuert selbst → Relay-Aenderungen ignorieren
         if ($this->ReadAttributeInteger('LogicalDir') !== self::DIRECTION_STOP) return;
 
-        $motorOn = (@IPS_VariableExists($runID)) ? (bool) GetValue($runID) : false;
-        $dirDown = (@IPS_VariableExists($dirID)) ? (bool) GetValue($dirID) : false;
+        $motorOn = ($runVarID > 0 && @IPS_VariableExists($runVarID)) ? (bool)GetValue($runVarID) : false;
+        $dirDown = ($dirVarID > 0 && @IPS_VariableExists($dirVarID)) ? (bool)GetValue($dirVarID) : false;
 
         $extDir = $this->ReadAttributeInteger('ExternalDir');
 
         if ($motorOn && $extDir === self::DIRECTION_STOP) {
-            // ── Externes Fahren gestartet ─────────────────────────────────
-            // Richtung: dirDown=false → AUF, dirDown=true → AB
-            $invert    = $this->ReadPropertyBoolean('InvertDirection');
-            $logicDir  = ($dirDown xor $invert) ? self::DIRECTION_DOWN : self::DIRECTION_UP;
+            // ── Externes Fahren gestartet ──────────────────────────────────
+            $invert   = $this->ReadPropertyBoolean('InvertDirection');
+            $logicDir = (($dirDown xor $invert)) ? self::DIRECTION_DOWN : self::DIRECTION_UP;
 
-            $this->WriteAttributeInteger('ExternalDir',   $logicDir);
-            $this->WriteAttributeFloat('ExternalStart',   microtime(true));
-            $this->WriteAttributeInteger('ExternalPos',   $this->GetValue('Position'));
+            $this->WriteAttributeInteger('ExternalDir',  $logicDir);
+            $this->WriteAttributeFloat('ExternalStart',  microtime(true));
+            $this->WriteAttributeInteger('ExternalPos',  $this->GetValue('Position'));
             $this->SetValue('Direction', $logicDir);
             $this->SetValue('Moving',    true);
             $this->LogMessage(
-                'LCNShutterRelay: Externe Fahrt erkannt – ' .
+                'LCNShutterRelay: Externe Fahrt – ' .
                 ($logicDir === self::DIRECTION_UP ? 'AUF' : 'AB') . ' (LCN-Taster)',
                 KL_MESSAGE
             );
 
         } elseif (!$motorOn && $extDir !== self::DIRECTION_STOP) {
-            // ── Externes Fahren gestoppt ──────────────────────────────────
+            // ── Externes Fahren gestoppt ────────────────────────────────────
             $elapsed  = microtime(true) - $this->ReadAttributeFloat('ExternalStart');
             $startPos = $this->ReadAttributeInteger('ExternalPos');
             $newPos   = $this->CalcPositionFromElapsed($elapsed, $extDir, $startPos);
@@ -273,7 +268,7 @@ class LCNShutterRelay extends IPSModule
     {
         switch ($ident) {
             case 'Position':
-                $this->MoveTo((int) $value);
+                $this->MoveTo((int)$value);
                 break;
             default:
                 throw new Exception('LCNShutterRelay RequestAction: Unbekannter Ident – ' . $ident);
@@ -284,17 +279,30 @@ class LCNShutterRelay extends IPSModule
     //  PRIVATE HELPERS
     // ==========================================================================
 
+    /**
+     * Gibt die Status-Variablen-ID der angegebenen Schaltinstanz zurueck.
+     * Schaltinstanzen in Symcon verwenden den Ident "Status" fuer ihre
+     * boolesche Ausgangsvariable.
+     */
+    private function GetRelayVarID(string $prop): int
+    {
+        $instID = $this->ReadPropertyInteger($prop);
+        if ($instID <= 0 || !@IPS_ObjectExists($instID)) return 0;
+        $varID = @IPS_GetObjectIDByIdent('Status', $instID);
+        return ($varID !== false && $varID > 0) ? (int)$varID : 0;
+    }
+
     private function StartFullTravel($logicDir)
     {
         $current = $this->GetValue('Position');
         if ($logicDir === self::DIRECTION_UP) {
             $fraction = $current / 100.0;
             $target   = 0;
-            $ms       = (int) round($this->ReadPropertyFloat('TravelTimeUp')   * $fraction * 1000);
+            $ms       = (int)round($this->ReadPropertyFloat('TravelTimeUp')   * $fraction * 1000);
         } else {
             $fraction = (100 - $current) / 100.0;
             $target   = 100;
-            $ms       = (int) round($this->ReadPropertyFloat('TravelTimeDown') * $fraction * 1000);
+            $ms       = (int)round($this->ReadPropertyFloat('TravelTimeDown') * $fraction * 1000);
         }
         if ($fraction <= 0.001) return;
         $this->BeginMovement($logicDir, $target, $ms);
@@ -307,7 +315,6 @@ class LCNShutterRelay extends IPSModule
             return;
         }
 
-        // Zustand VOR Relaisoperationen setzen (MessageSink ignoriert eigene Aenderungen)
         $this->WriteAttributeInteger('LogicalDir',     $logicDir);
         $this->WriteAttributeInteger('ExternalDir',    self::DIRECTION_STOP);
         $this->WriteAttributeFloat('StartTime',        microtime(true));
@@ -328,7 +335,7 @@ class LCNShutterRelay extends IPSModule
 
         $this->SetValue('Direction', $logicDir);
         $this->SetValue('Moving',    true);
-        $this->SetTimerInterval('StopTimer', (int) round($travelMs * 1.1));
+        $this->SetTimerInterval('StopTimer', (int)round($travelMs * 1.1));
 
         $this->LogMessage(
             sprintf('LCNShutterRelay: Fahrt %s → %d %% (%.1f s)',
@@ -359,70 +366,52 @@ class LCNShutterRelay extends IPSModule
             $newPos   = $this->CalcPositionFromElapsed($elapsed, $logicDir, $startPos);
             $this->SetValue('Position', $newPos);
             $this->SetModuleSummary();
-            $this->LogMessage(sprintf('LCNShutterRelay: Stopp – berechnete Position: %d %%', $newPos), KL_DEBUG);
+            $this->LogMessage(sprintf('LCNShutterRelay: Stopp – Position: %d %%', $newPos), KL_DEBUG);
         } elseif ($extDir !== self::DIRECTION_STOP) {
             $elapsed  = microtime(true) - $this->ReadAttributeFloat('ExternalStart');
             $startPos = $this->ReadAttributeInteger('ExternalPos');
             $newPos   = $this->CalcPositionFromElapsed($elapsed, $extDir, $startPos);
             $this->SetValue('Position', $newPos);
             $this->SetModuleSummary();
-            $this->LogMessage(sprintf('LCNShutterRelay: Ext. Stopp – berechnete Position: %d %%', $newPos), KL_DEBUG);
+            $this->LogMessage(sprintf('LCNShutterRelay: Ext. Stopp – Position: %d %%', $newPos), KL_DEBUG);
         }
     }
 
-    /**
-     * Schaltet den Motor AUS (Fahren=OFF). Richtungsrelais bleibt unveraendert.
-     * Sicher jederzeit aufrufbar – kein IPS_Sleep noetig.
-     */
+    /** Motor AUS: setzt FAHREN-Relais auf false. */
     private function StopMotor()
     {
-        $runID = $this->ReadPropertyInteger('RelayRunID');
-        if ($runID > 0 && @IPS_VariableExists($runID)) {
-            try {
-                RequestAction($runID, false);
-            } catch (Exception $e) {
-                $this->LogMessage('LCNShutterRelay StopMotor: ' . $e->getMessage(), KL_ERROR);
-            }
+        $varID = $this->GetRelayVarID('RelayRunInstanceID');
+        if ($varID > 0) {
+            try { IPS_RequestAction($varID, false); }
+            catch (Exception $e) { $this->LogMessage('StopMotor: ' . $e->getMessage(), KL_ERROR); }
         }
     }
 
-    /**
-     * Schaltet den Motor AN (Fahren=ON).
-     * Nur aufrufen nachdem SetDirectionRelay() bereits gesetzt wurde!
-     */
+    /** Motor AN: setzt FAHREN-Relais auf true. */
     private function StartMotor()
     {
-        $runID = $this->ReadPropertyInteger('RelayRunID');
-        if ($runID > 0 && @IPS_VariableExists($runID)) {
-            try {
-                RequestAction($runID, true);
-            } catch (Exception $e) {
-                $this->LogMessage('LCNShutterRelay StartMotor: ' . $e->getMessage(), KL_ERROR);
-            }
+        $varID = $this->GetRelayVarID('RelayRunInstanceID');
+        if ($varID > 0) {
+            try { IPS_RequestAction($varID, true); }
+            catch (Exception $e) { $this->LogMessage('StartMotor: ' . $e->getMessage(), KL_ERROR); }
         }
     }
 
     /**
-     * Setzt das Richtungsrelais gemaess logischer Richtung.
-     * Beruecksichtigt InvertDirection.
-     *   AUF normal:   Richtung=OFF
-     *   AB  normal:   Richtung=ON
-     *   AUF invertiert: Richtung=ON
-     *   AB  invertiert: Richtung=OFF
+     * Setzt das RICHTUNG-Relais gemaess logischer Fahrtrichtung.
+     * InvertDirection kehrt das Richtungsrelais um (bei vertauschter Verdrahtung).
+     *   Normal:    AUF=false / AB=true
+     *   Invertiert: AUF=true  / AB=false
      */
     private function SetDirectionRelay($logicDir)
     {
-        $invert = $this->ReadPropertyBoolean('InvertDirection');
-        // AB = Richtung ON, AUF = Richtung OFF (ggf. invertiert)
-        $dirState = (($logicDir === self::DIRECTION_DOWN) xor $invert);  // Klammern nötig: xor < = in Priorität!
+        $invert   = $this->ReadPropertyBoolean('InvertDirection');
+        $dirState = (($logicDir === self::DIRECTION_DOWN) xor $invert);  // Klammern noetig: xor < = Prioritaet!
 
-        $dirID = $this->ReadPropertyInteger('RelayDirectionID');
-        if ($dirID > 0 && @IPS_VariableExists($dirID)) {
-            try {
-                RequestAction($dirID, $dirState);
-            } catch (Exception $e) {
-                $this->LogMessage('LCNShutterRelay SetDirectionRelay: ' . $e->getMessage(), KL_ERROR);
-            }
+        $varID = $this->GetRelayVarID('RelayDirectionInstanceID');
+        if ($varID > 0) {
+            try { IPS_RequestAction($varID, $dirState); }
+            catch (Exception $e) { $this->LogMessage('SetDirectionRelay: ' . $e->getMessage(), KL_ERROR); }
         }
     }
 
@@ -433,7 +422,7 @@ class LCNShutterRelay extends IPSModule
         } else {
             $newPos = $startPos + ($elapsedSec / $this->ReadPropertyFloat('TravelTimeDown')) * 100.0;
         }
-        return max(0, min(100, (int) round($newPos)));
+        return max(0, min(100, (int)round($newPos)));
     }
 
     private function RegisterReferences()
@@ -441,30 +430,26 @@ class LCNShutterRelay extends IPSModule
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        foreach (['RelayRunID', 'RelayDirectionID'] as $prop) {
-            $id = $this->ReadPropertyInteger($prop);
-            if ($id > 0 && @IPS_VariableExists($id)) {
-                $this->RegisterReference($id);
+        foreach (['RelayRunInstanceID', 'RelayDirectionInstanceID'] as $prop) {
+            $instID = $this->ReadPropertyInteger($prop);
+            if ($instID > 0 && @IPS_ObjectExists($instID)) {
+                $this->RegisterReference($instID);
             }
         }
     }
 
-    private function SetModuleSummary()
-    {
-        $pos = $this->GetValue('Position');
-        $this->SetSummary($pos . ' %');
-    }
-
     private function RegisterRelayMessages()
     {
+        // Alte Subscriptions abmelden
         foreach ($this->GetMessageList() as $sid => $msgs) {
             if (in_array(VM_UPDATE, $msgs)) {
                 $this->UnregisterMessage($sid, VM_UPDATE);
             }
         }
-        foreach (['RelayRunID', 'RelayDirectionID'] as $prop) {
-            $varID = $this->ReadPropertyInteger($prop);
-            if ($varID > 0 && @IPS_VariableExists($varID)) {
+        // Status-Variablen der Instanzen abonnieren
+        foreach (['RelayRunInstanceID', 'RelayDirectionInstanceID'] as $prop) {
+            $varID = $this->GetRelayVarID($prop);
+            if ($varID > 0) {
                 $this->RegisterMessage($varID, VM_UPDATE);
             }
         }
@@ -472,13 +457,26 @@ class LCNShutterRelay extends IPSModule
 
     private function ValidateConfiguration()
     {
-        $runID = $this->ReadPropertyInteger('RelayRunID');
-        $dirID = $this->ReadPropertyInteger('RelayDirectionID');
+        $runInstID = $this->ReadPropertyInteger('RelayRunInstanceID');
+        $dirInstID = $this->ReadPropertyInteger('RelayDirectionInstanceID');
 
-        if ($runID === 0 || $dirID === 0)                          { $this->SetStatus(self::STATUS_CONFIG_INCOMPLETE); return; }
-        if ($runID === $dirID)                                      { $this->SetStatus(self::STATUS_SAME_RELAY);        return; }
-        if (!@IPS_VariableExists($runID) || !@IPS_VariableExists($dirID)) { $this->SetStatus(self::STATUS_VAR_NOT_FOUND); return; }
+        if ($runInstID === 0 || $dirInstID === 0) {
+            $this->SetStatus(self::STATUS_CONFIG_INCOMPLETE); return;
+        }
+        if ($runInstID === $dirInstID) {
+            $this->SetStatus(self::STATUS_SAME_INSTANCE); return;
+        }
+        $runVarID = $this->GetRelayVarID('RelayRunInstanceID');
+        $dirVarID = $this->GetRelayVarID('RelayDirectionInstanceID');
+        if ($runVarID === 0 || $dirVarID === 0) {
+            $this->SetStatus(self::STATUS_VAR_NOT_FOUND); return;
+        }
         $this->SetStatus(self::STATUS_ACTIVE);
+    }
+
+    private function SetModuleSummary()
+    {
+        $this->SetSummary($this->GetValue('Position') . ' %');
     }
 
     private function EnsureProfiles()

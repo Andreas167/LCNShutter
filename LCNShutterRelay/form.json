@@ -3,23 +3,21 @@
         {
             "type": "Label",
             "bold": true,
-            "caption": "LCN Relais-Konfiguration (Fahren + Richtung)"
+            "caption": "LCN Schaltinstanzen (Fahren + Richtung)"
         },
         {
             "type": "Label",
-            "caption": "Klassische LCN-Schaltung: ein Relais für Motor AN/AUS, ein Relais für Richtung AUF/AB."
+            "caption": "Wähle für jedes Relais die zugehörige Symcon-Schaltinstanz (z.B. LCN Relais). Das Modul steuert die Instanz über deren Status-Variable."
         },
         {
-            "type": "SelectVariable",
-            "name": "RelayRunID",
-            "caption": "Relais FAHREN  (Boolean-Variable, ON = Motor läuft)",
-            "width": "400px"
+            "type": "SelectInstance",
+            "name": "RelayRunInstanceID",
+            "caption": "Schaltinstanz  FAHREN   (Status=ON → Motor läuft)"
         },
         {
-            "type": "SelectVariable",
-            "name": "RelayDirectionID",
-            "caption": "Relais RICHTUNG (Boolean-Variable, OFF = AUF / ON = AB)",
-            "width": "400px"
+            "type": "SelectInstance",
+            "name": "RelayDirectionInstanceID",
+            "caption": "Schaltinstanz  RICHTUNG  (Status=OFF → AUF  /  Status=ON → AB)"
         },
         {
             "type": "Label",
@@ -83,7 +81,7 @@
             "items": [
                 {
                     "type": "Button",
-                    "caption": "▲  AUF fahren",
+                    "caption": "▲  AUF",
                     "onClick": "LRS_MoveUp($id);"
                 },
                 {
@@ -93,14 +91,10 @@
                 },
                 {
                     "type": "Button",
-                    "caption": "▼  AB fahren",
+                    "caption": "▼  AB",
                     "onClick": "LRS_MoveDown($id);"
                 }
             ]
-        },
-        {
-            "type": "Label",
-            "caption": " "
         },
         {
             "type": "RowLayout",
@@ -125,25 +119,16 @@
             "caption": " "
         },
         {
-            "type": "Label",
-            "bold": true,
-            "caption": "Kalibrierung"
-        },
-        {
-            "type": "Label",
-            "caption": "Fährt auf untere Endlage (+ 20 % Puffer) und setzt Position = 100 %."
-        },
-        {
             "type": "Button",
-            "caption": "Kalibrierung starten",
+            "caption": "Kalibrierung starten (fährt auf untere Endlage)",
             "onClick": "LRS_Calibrate($id);"
         }
     ],
 
     "status": [
         { "code": 102, "icon": "active",   "caption": "Aktiv" },
-        { "code": 104, "icon": "inactive", "caption": "Konfiguration unvollständig – bitte Relais-Variablen wählen" },
-        { "code": 200, "icon": "error",    "caption": "Fehler: Fahren und Richtung sind identisch" },
-        { "code": 201, "icon": "error",    "caption": "Fehler: Relais-Variable nicht gefunden" }
+        { "code": 104, "icon": "inactive", "caption": "Bitte Schaltinstanzen auswählen" },
+        { "code": 200, "icon": "error",    "caption": "Fehler: FAHREN und RICHTUNG sind dieselbe Instanz" },
+        { "code": 201, "icon": "error",    "caption": "Fehler: Status-Variable der Instanz nicht gefunden" }
     ]
 }
